@@ -79,24 +79,45 @@ O `#editor` recebe uma das classes `view-editor` / `view-split` / `view-preview`
 
 Auto-update funciona via [update.electronjs.org](https://update.electronjs.org) — serviço gratuito hospedado pela Electron team que serve metadata de update direto do GitHub Releases do repo `maper765/snippet-manager` (precisa ser **público**).
 
-### Como publicar uma nova versão
+### Como publicar uma nova versão (via GitHub Actions — recomendado)
 
-1. **Bump da versão** em `package.json` (semver, ex.: `1.0.0` → `1.0.1`). O updater compara via essa string — sem bump não há update.
-2. **Gerar/exportar PAT** com scope `repo` em [github.com/settings/tokens](https://github.com/settings/tokens) e setar:
+O fluxo de produção usa CI: cria-se uma tag git, e [.github/workflows/release.yml](.github/workflows/release.yml) faz o build em **Windows + macOS + Linux** em paralelo, todos publicando assets na mesma release draft.
+
+1. **Bump da versão** em `package.json` (semver, ex.: `1.0.0` → `1.0.1`).
+2. **Commit + tag**:
+
+   ```powershell
+   git commit -am "v1.0.1"
+   git tag v1.0.1
+   git push && git push --tags
+   ```
+
+3. GitHub Actions dispara automaticamente (gatilho `push: tags: v*`). Três jobs rodam em paralelo:
+   - **windows-latest** → Squirrel (`.exe`, `.nupkg`, `RELEASES`)
+   - **macos-latest** → zip do `.app` (sem code signing — Gatekeeper bloqueia, auto-update não funciona em Mac)
+   - **ubuntu-latest** → `.deb` + `.rpm`
+4. **Revisar e publicar** em github.com/maper765/snippet-manager/releases — release fica como **draft**. Clica em "Publish release" pra ficar visível.
+5. **Clientes existentes** detectam o update em até 1 hora (interval em [main.js](main.js)) e mostram diálogo "Restart to apply".
+
+O workflow usa `secrets.GITHUB_TOKEN` automático do Actions — não precisa configurar PAT no repo.
+
+### Publish manual local (apenas Windows, fallback)
+
+Se Actions estiver indisponível ou quiser testar localmente:
+
+1. Setar PAT com scope `repo` em [github.com/settings/tokens](https://github.com/settings/tokens):
 
    ```powershell
    $env:GITHUB_TOKEN = "ghp_..."
    ```
 
-3. **Rodar publish**:
+2. Rodar:
 
    ```powershell
    npm run publish
    ```
 
-   Isso roda `electron-forge publish`: empacota, gera instaladores (Squirrel/.deb/.rpm/.zip) e faz upload pro GitHub Releases como **draft**.
-4. **Revisar e publicar manualmente** em github.com/maper765/snippet-manager/releases — o publisher cria draft (config `draft: true` em forge.config.js); precisa clicar em "Publish release" pra ficar visível pros usuários.
-5. **Clientes existentes** vão detectar o update em até 1 hora (interval configurado em [main.js](main.js)) e mostrar diálogo "Restart to apply".
+   Só vai gerar artefatos da plataforma onde está rodando (Windows produz Squirrel, etc.).
 
 ### Quem checa update
 
