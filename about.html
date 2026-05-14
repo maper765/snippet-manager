@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sobre o Snippet Manager</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          system-ui,
+          sans-serif;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font-size: 13px;
+        line-height: 1.55;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Custom scrollbars (Chromium) — combina com o resto do app */
+      ::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #3c3c3c;
+        border: 3px solid transparent;
+        border-radius: 6px;
+        background-clip: content-box;
+        min-height: 30px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+        background-clip: content-box;
+        border: 3px solid transparent;
+      }
+
+      header {
+        padding: 18px 24px;
+        border-bottom: 1px solid #2d2d2d;
+        background: #252526;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      header h1 {
+        font-size: 1.25rem;
+        color: #ffffff;
+        font-weight: 600;
+      }
+      .version-badge {
+        background: #094771;
+        color: #ffffff;
+        padding: 3px 10px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      main {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 24px 28px;
+      }
+
+      .section {
+        margin-bottom: 22px;
+      }
+      .section:last-child {
+        margin-bottom: 0;
+      }
+      .section-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #6e9cd2;
+        font-weight: 700;
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #2d2d2d;
+      }
+
+      .info-row {
+        display: flex;
+        gap: 12px;
+        padding: 4px 0;
+      }
+      .info-row .label {
+        min-width: 80px;
+        color: #a8a8a8;
+        font-weight: 500;
+      }
+      .info-row .value {
+        flex: 1;
+      }
+
+      .feature-group {
+        margin-bottom: 14px;
+      }
+      .feature-group:last-child {
+        margin-bottom: 0;
+      }
+      .feature-group h3 {
+        font-size: 12px;
+        color: #ffffff;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      .feature-group ul {
+        list-style: none;
+        padding-left: 4px;
+      }
+      .feature-group li {
+        position: relative;
+        padding-left: 16px;
+        padding-bottom: 3px;
+        color: #d4d4d4;
+        font-size: 12.5px;
+      }
+      .feature-group li::before {
+        content: '›';
+        position: absolute;
+        left: 4px;
+        color: #6e9cd2;
+        font-weight: 700;
+      }
+      .feature-group li strong {
+        color: #ffffff;
+        font-weight: 600;
+      }
+      .feature-group li code {
+        background: #2d2d30;
+        color: #ce9178;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: 'Menlo', 'Consolas', monospace;
+        font-size: 11.5px;
+      }
+
+      .release {
+        background: #262626;
+        border: 1px solid #3c3c3c;
+        border-radius: 6px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+      }
+      .release:last-child {
+        margin-bottom: 0;
+      }
+      .release-header {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .release-tag {
+        font-size: 13px;
+        font-weight: 700;
+        color: #ffffff;
+      }
+      .release-current {
+        background: #094771;
+        color: #ffffff;
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .release-date {
+        margin-left: auto;
+        color: #a8a8a8;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+      }
+      .release ul {
+        list-style: none;
+        padding-left: 0;
+      }
+      .release li {
+        position: relative;
+        padding-left: 14px;
+        padding-bottom: 3px;
+        font-size: 12px;
+        color: #d4d4d4;
+      }
+      .release li::before {
+        content: '•';
+        position: absolute;
+        left: 2px;
+        color: #6e9cd2;
+      }
+
+      footer {
+        padding: 12px 24px;
+        border-top: 1px solid #2d2d2d;
+        background: #252526;
+        font-size: 11px;
+        color: #888;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Snippet Manager</h1>
+      <span class="version-badge">v1.0.0</span>
+    </header>
+
+    <main>
+      <section class="section">
+        <div class="section-title">Sobre</div>
+        <div class="info-row">
+          <div class="label">Descrição</div>
+          <div class="value">Gerenciador desktop de snippets de código com suporte a markdown, imagens e busca full-text.</div>
+        </div>
+        <div class="info-row">
+          <div class="label">Autor</div>
+          <div class="value">Mário Oliveira</div>
+        </div>
+        <div class="info-row">
+          <div class="label">Stack</div>
+          <div class="value">Electron + SQLite embarcado (better-sqlite3) + highlight.js + marked</div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Funcionalidades</div>
+
+        <div class="feature-group">
+          <h3>Editor &amp; visualização</h3>
+          <ul>
+            <li>Syntax highlighting via <strong>highlight.js</strong> para 10 linguagens (JavaScript, TypeScript, Python, HTML, CSS, Bash, JSON, SQL, Markdown, texto puro)</li>
+            <li>Renderização de Markdown com <strong>marked</strong> + sanitização <strong>DOMPurify</strong>; preview com syntax highlight em code blocks</li>
+            <li>3 modos de visualização: <strong>Editor</strong> / <strong>Split</strong> / <strong>Preview</strong></li>
+            <li>Autosave debounceado (400ms persistência, 150ms preview)</li>
+            <li><code>Tab</code> no editor insere 2 espaços (não pula foco)</li>
+            <li>Botão de cópia em 3 contextos (header, painel editor, painel preview)</li>
+            <li>Cópia inteligente: no preview de markdown copia o <strong>texto formatado sem marcações</strong></li>
+          </ul>
+        </div>
+
+        <div class="feature-group">
+          <h3>Busca &amp; filtros</h3>
+          <ul>
+            <li>Busca full-text via <strong>SQLite FTS5</strong> com prefix match (ex.: <code>java</code> casa <code>javascript</code>)</li>
+            <li>Normalização de acentos (<code>código</code> casa <code>codigo</code>)</li>
+            <li>Debounce de 500ms com rejeição de resultados obsoletos (race-safe)</li>
+            <li>Spinner inline + lista dimmed durante busca</li>
+            <li>Filtro por linguagem (dropdown)</li>
+            <li>Filtro por tags clicáveis na lista + picker de tags existentes</li>
+            <li>Filtros combinam em AND; chips ativos no topo, botão Limpar</li>
+            <li>Ordenação alfabética A→Z / Z→A com toggle</li>
+            <li>Contador no header (<code>3 / 12</code> quando filtrado)</li>
+          </ul>
+        </div>
+
+        <div class="feature-group">
+          <h3>Imagens</h3>
+          <ul>
+            <li>Upload via diálogo de arquivo</li>
+            <li><strong>Paste do clipboard</strong> (Ctrl+V) — útil pra screenshots</li>
+            <li><strong>Drag &amp; drop</strong> de arquivos pro editor com overlay visual</li>
+            <li>Galeria de thumbnails com título editável inline (click para renomear)</li>
+            <li>Modal de visualização full-screen com <strong>zoom</strong> (25%-400%) via slider vertical</li>
+            <li><strong>Pan</strong> via click-and-drag quando ampliada</li>
+            <li>Atalhos no modal: <code>Esc</code>, <code>+</code>, <code>−</code>, <code>Ctrl+0</code> (fit)</li>
+            <li>Pasta de imagens configurável com migração assistida (mover / copiar)</li>
+          </ul>
+        </div>
+
+        <div class="feature-group">
+          <h3>Persistência</h3>
+          <ul>
+            <li>SQLite embarcado via <strong>better-sqlite3</strong> (zero dependência externa)</li>
+            <li>WAL mode + foreign keys cascading</li>
+            <li>Schema: <code>snippets</code>, <code>images</code>, <code>users</code> + virtual table FTS5</li>
+            <li>Triggers sincronizam FTS5 automaticamente em INSERT/UPDATE/DELETE</li>
+            <li><strong>Lazy-loading</strong>: lista traz só metadados, code é fetchado sob demanda no select</li>
+            <li>Race protection no select rápido entre snippets</li>
+            <li>Caminho do banco visível em Preferências (+ botão Abrir pasta)</li>
+          </ul>
+        </div>
+
+        <div class="feature-group">
+          <h3>Atalhos de teclado</h3>
+          <ul>
+            <li><code>Ctrl+N</code> — novo snippet (abre em modo editor)</li>
+            <li><code>Ctrl+S</code> — forçar save imediato</li>
+            <li><code>Ctrl+F</code> — foca a busca</li>
+            <li><code>Ctrl+D</code> — duplicar snippet atual</li>
+            <li><code>Ctrl+E</code> — exportar tudo pra JSON</li>
+            <li><code>Tab</code> no editor — indentação 2 espaços</li>
+          </ul>
+        </div>
+
+        <div class="feature-group">
+          <h3>Outros</h3>
+          <ul>
+            <li>Autenticação com login/logout (padrão <code>admin/admin</code>)</li>
+            <li>Menu travado pré-login (só Help visível)</li>
+            <li>Persistência de bounds da janela (size, position, maximized)</li>
+            <li>Export de todos os snippets pra JSON via menu</li>
+            <li>Tema dark VS Code-inspired com scrollbars customizadas</li>
+            <li>Ícones SVG (Lucide) em todos os botões — consistente entre OSes</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Releases</div>
+
+        <div class="release">
+          <div class="release-header">
+            <span class="release-tag">v1.0.0</span>
+            <span class="release-current">Atual</span>
+            <span class="release-date">2026-05</span>
+          </div>
+          <ul>
+            <li>Migração de MongoDB para <strong>SQLite embarcado</strong> (better-sqlite3) — zero dependência externa de runtime</li>
+            <li><strong>Busca FTS5</strong> com prefix match (substring de volta) e normalização de acentos</li>
+            <li><strong>Lazy-loading</strong> do code field — lista carrega só metadados</li>
+            <li>Galeria de imagens com paste do clipboard, drag &amp; drop e zoom/pan no modal</li>
+            <li>Filtros combinados (linguagem + tags + busca textual) com chips visuais</li>
+            <li>Ordenação alfabética, contador filtrado, atalhos de teclado, export JSON</li>
+            <li>Pasta de imagens configurável com migração assistida</li>
+            <li>Caminho do banco visível em Preferências (com "Abrir pasta" pra inspeção via DB Browser, DBeaver, etc.)</li>
+            <li>Ícones SVG Lucide, scrollbars customizadas, tema dark consistente</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer>© 2026 Mário Oliveira</footer>
+  </body>
+</html>

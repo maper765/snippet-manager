@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Configurações</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 20px;
+      }
+
+      h1 {
+        margin-bottom: 24px;
+        font-size: 1.5rem;
+      }
+
+      .config-group {
+        margin-bottom: 20px;
+        padding: 16px;
+        background: #262626;
+        border-radius: 6px;
+        border: 1px solid #3c3c3c;
+      }
+
+      .config-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        font-size: 13px;
+      }
+
+      .path-input-group {
+        display: flex;
+        gap: 8px;
+      }
+
+      #imagePath,
+      #dbPath {
+        flex: 1;
+        background: #1e1e1e;
+        border: 1px solid #3c3c3c;
+        color: #d4d4d4;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        word-break: break-all;
+        min-width: 0;
+      }
+
+      #dbPath {
+        color: #a8a8a8;
+      }
+
+      #imagePath:focus,
+      #dbPath:focus {
+        outline: none;
+        border-color: #0e639c;
+      }
+
+      button {
+        background: #0e639c;
+        border: none;
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: background 0.2s;
+      }
+
+      button:hover {
+        background: #1177bb;
+      }
+
+      button.secondary {
+        background: #3c3c3c;
+        color: #d4d4d4;
+      }
+
+      button.secondary:hover {
+        background: #4a4a4a;
+      }
+
+      .button-group {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .info-text {
+        font-size: 12px;
+        color: #a8a8a8;
+        margin-top: 8px;
+      }
+
+      .success {
+        color: #4ec9b0;
+      }
+
+      #status {
+        margin-top: 12px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        background: #1e3a1f;
+        color: #4ec9b0;
+        display: none;
+        white-space: pre-wrap;
+      }
+
+      #status.show {
+        display: block;
+      }
+
+      #status.error {
+        background: #3a1e1e;
+        color: #f48771;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Configurações</h1>
+
+    <div class="config-group">
+      <label for="imagePath">Pasta para salvar imagens:</label>
+      <div class="path-input-group">
+        <input type="text" id="imagePath" readonly />
+        <button id="browseBtn">Procurar...</button>
+        <button class="secondary" id="resetBtn">Padrão</button>
+      </div>
+      <div class="info-text">Escolha onde as imagens dos snippets serão armazenadas</div>
+    </div>
+
+    <div class="config-group">
+      <label for="dbPath">Caminho do banco de dados (SQLite):</label>
+      <div class="path-input-group">
+        <input type="text" id="dbPath" readonly />
+        <button class="secondary" id="copyDbPathBtn" title="Copiar caminho para a área de transferência">Copiar</button>
+        <button class="secondary" id="openDbFolderBtn" title="Abrir pasta do banco no Explorer">Abrir pasta</button>
+      </div>
+      <div class="info-text">
+        Apenas leitura. Pra inspecionar o conteúdo, use ferramentas como
+        <strong>DB Browser for SQLite</strong>, <strong>DBeaver</strong> ou a extensão
+        <strong>SQLite Viewer</strong> do VS Code apontando pra esse arquivo.
+      </div>
+    </div>
+
+    <div id="status"></div>
+
+    <script>
+      const els = {
+        imagePath: document.getElementById('imagePath'),
+        browseBtn: document.getElementById('browseBtn'),
+        resetBtn: document.getElementById('resetBtn'),
+        dbPath: document.getElementById('dbPath'),
+        copyDbPathBtn: document.getElementById('copyDbPathBtn'),
+        openDbFolderBtn: document.getElementById('openDbFolderBtn'),
+        status: document.getElementById('status')
+      };
+
+      async function loadConfig() {
+        try {
+          const config = await window.api.getConfig();
+          els.imagePath.value = config.imagePath || '';
+          els.dbPath.value = config.dbPath || '';
+        } catch (err) {
+          console.error('Erro ao carregar config:', err);
+        }
+      }
+
+      async function browsePath() {
+        try {
+          const result = await window.api.selectFolder();
+          if (result) {
+            await saveConfig(result);
+          }
+        } catch (err) {
+          console.error('Erro ao selecionar pasta:', err);
+          showStatus(err.message || 'Erro ao selecionar pasta', true);
+        }
+      }
+
+      async function resetPath() {
+        try {
+          const defaultPath = await window.api.resetConfigPath();
+          els.imagePath.value = defaultPath;
+          showStatus('Caminho restaurado para o padrão');
+        } catch (err) {
+          console.error('Erro ao resetar:', err);
+          showStatus(extractMessage(err) || 'Erro ao restaurar', true);
+        }
+      }
+
+      async function saveConfig(imagePath) {
+        try {
+          const result = await window.api.saveConfig({ imagePath });
+          els.imagePath.value = result.imagePath;
+          if (result.cancelled) {
+            showStatus('Alteração cancelada');
+            return;
+          }
+          showStatus(buildSuccessMessage(result));
+        } catch (err) {
+          console.error('Erro ao salvar config:', err);
+          showStatus(extractMessage(err) || 'Erro ao salvar configuração', true);
+        }
+      }
+
+      function buildSuccessMessage(result) {
+        const lines = ['Configuração salva com sucesso'];
+        const m = result.migration;
+        if (m) {
+          const verb = m.mode === 'move' ? 'movida(s)' : 'copiada(s)';
+          lines.push(`${m.migrated} imagem(ns) ${verb}.`);
+          if (m.skipped) lines.push(`${m.skipped} já existia(m) no destino.`);
+          if (m.errors && m.errors.length) {
+            lines.push(`${m.errors.length} falha(s): ${m.errors.map(e => e.file).join(', ')}`);
+          }
+        }
+        return lines.join('\n');
+      }
+
+      function extractMessage(err) {
+        const raw = err?.message || String(err);
+        // Strip Electron's IPC error prefix: "Error invoking remote method '...': Error: real message"
+        const match = raw.match(/Error:\s*([^]*?)$/);
+        return match ? match[1].trim() : raw;
+      }
+
+      let statusTimeout = null;
+      function showStatus(msg, isError = false) {
+        clearTimeout(statusTimeout);
+        els.status.textContent = msg;
+        els.status.classList.toggle('error', isError);
+        els.status.classList.add('show');
+        if (!isError) {
+          statusTimeout = setTimeout(() => els.status.classList.remove('show'), 3500);
+        }
+      }
+
+      els.browseBtn.addEventListener('click', browsePath);
+      els.resetBtn.addEventListener('click', resetPath);
+      els.copyDbPathBtn.addEventListener('click', async () => {
+        try {
+          await window.api.copyToClipboard(els.dbPath.value);
+          showStatus('Caminho copiado');
+        } catch (err) {
+          showStatus(extractMessage(err) || 'Erro ao copiar', true);
+        }
+      });
+      els.openDbFolderBtn.addEventListener('click', async () => {
+        try {
+          await window.api.showItemInFolder(els.dbPath.value);
+        } catch (err) {
+          showStatus(extractMessage(err) || 'Erro ao abrir pasta', true);
+        }
+      });
+
+      loadConfig();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npx --yes @electron/rebuild -w better-sqlite3 -f)",
+      "Bash(node -e \"const e = require\\('electron/package.json'\\); console.log\\('Electron', e.version, 'using Node ABI', process.versions.modules\\)\")",
+      "Bash(node -e \"try { const db = require\\('better-sqlite3'\\); console.log\\('OK module loaded:', typeof db\\); } catch \\(e\\) { console.log\\('FAILED:', e.message\\); console.log\\('Code:', e.code\\); }\")",
+      "Bash(node -e \"console.log\\(require.resolve\\('better-sqlite3', { paths: [process.cwd\\(\\)] }\\)\\)\")",
+      "Bash(npx electron *)",
+      "Bash(kill %1)",
+      "Bash(wait)",
+      "Bash(npm start *)",
+      "Bash(npm uninstall *)"
+    ]
+  }
+}
