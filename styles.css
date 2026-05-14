@@ -301,6 +301,14 @@ body {
   font-weight: 500;
   font-style: normal;
 }
+.sidebar-footer .credit .version {
+  color: #6e6e6e;
+  font-variant-numeric: tabular-nums;
+  font-style: normal;
+}
+.sidebar-footer .credit .version:not(:empty)::before {
+  content: ' · ';
+}
 #snippetList li {
   padding: 10px 16px;
   cursor: pointer;

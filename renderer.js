@@ -209,7 +209,8 @@ const els = {
   imageModalZoomOut: document.getElementById('imageModalZoomOut'),
   imageModalZoomFit: document.getElementById('imageModalZoomFit'),
   imageModalZoomValue: document.getElementById('imageModalZoomValue'),
-  quitBtn: document.getElementById('quitBtn')
+  quitBtn: document.getElementById('quitBtn'),
+  appVersion: document.getElementById('appVersion')
 };
 
 let modalFitWidth = 0;
@@ -323,6 +324,12 @@ async function init() {
     showStatus('⚠ Banco offline');
     snippets = [];
   }
+  window.api
+    .getAppVersion()
+    .then((v) => {
+      if (v) els.appVersion.textContent = `v${v}`;
+    })
+    .catch((err) => console.error('Falha ao obter versão:', err));
   window.api.onImagePathChanged((newPath) => {
     window.imagePath = newPath;
     if (currentId) renderGallery();

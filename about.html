@@ -219,8 +219,12 @@
   <body>
     <header>
       <h1>Snippet Manager</h1>
-      <span class="version-badge">v1.0.0</span>
+      <span class="version-badge" id="versionBadge">v…</span>
     </header>
+    <script>
+      const v = new URLSearchParams(window.location.search).get('version');
+      if (v) document.getElementById('versionBadge').textContent = 'v' + v;
+    </script>
 
     <main>
       <section class="section">

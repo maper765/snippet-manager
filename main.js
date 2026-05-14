@@ -381,7 +381,7 @@ function createAboutWindow() {
     }
   });
   aboutWin.removeMenu();
-  aboutWin.loadFile('about.html');
+  aboutWin.loadFile('about.html', { query: { version: app.getVersion() } });
 }
 
 function createConfigWindow() {
@@ -663,6 +663,8 @@ app.whenReady().then(() => {
       mainWindow.close();
     }
   });
+
+  ipcMain.handle('app:version', () => app.getVersion());
 
   ipcMain.handle('images:upload', (_, snippetId, filePath, title) => {
     if (!db) throw new Error('SQLite não conectado');

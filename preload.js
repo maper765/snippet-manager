@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteSnippet: (id) => ipcRenderer.invoke('snippets:delete', id),
   copyToClipboard: (text) => ipcRenderer.invoke('clipboard:write', text),
   quitApp: () => ipcRenderer.invoke('app:quit'),
+  getAppVersion: () => ipcRenderer.invoke('app:version'),
   uploadImage: (snippetId, filePath, title) => ipcRenderer.invoke('images:upload', snippetId, filePath, title),
   uploadImageBuffer: (snippetId, bytes, ext, title) =>
     ipcRenderer.invoke('images:upload-buffer', snippetId, bytes, ext, title),
