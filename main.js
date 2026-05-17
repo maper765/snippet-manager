@@ -4,6 +4,24 @@ const crypto = require('crypto');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 
+// Logger seguro: em builds packaged no Windows, stdout pode quebrar (EPIPE)
+// quando o app roda sem terminal attached. Engolimos esses writes em vez de
+// deixar virar uncaughtException.
+const safeWrite = (fn) => (...args) => {
+  try { fn(...args); } catch { /* EPIPE etc. */ }
+};
+const safeLogger = {
+  log: safeWrite(console.log.bind(console)),
+  info: safeWrite(console.info.bind(console)),
+  warn: safeWrite(console.warn.bind(console)),
+  error: safeWrite(console.error.bind(console))
+};
+
+process.on('uncaughtException', (err) => {
+  if (err && err.code === 'EPIPE') return;
+  safeLogger.error('Uncaught exception:', err);
+});
+
 // Auto-update via update.electronjs.org (somente em build empacotada)
 if (app.isPackaged) {
   try {
@@ -14,10 +32,10 @@ if (app.isPackaged) {
         repo: 'maper765/snippet-manager'
       },
       updateInterval: '1 hour',
-      logger: console
+      logger: safeLogger
     });
   } catch (err) {
-    console.error('Falha ao iniciar auto-update:', err.message);
+    safeLogger.error('Falha ao iniciar auto-update:', err.message);
   }
 }
 
