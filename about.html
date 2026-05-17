@@ -331,8 +331,71 @@
 
         <div class="release">
           <div class="release-header">
-            <span class="release-tag">v1.0.0</span>
+            <span class="release-tag">v1.0.6</span>
             <span class="release-current">Atual</span>
+            <span class="release-date">2026-05-17</span>
+          </div>
+          <ul>
+            <li>Histórico completo de releases preenchido na janela <strong>Sobre</strong> (cards do v1.0.1 ao v1.0.5)</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <span class="release-tag">v1.0.5</span>
+            <span class="release-date">2026-05-17</span>
+          </div>
+          <ul>
+            <li>Auto-update com diálogo customizado: <strong>"Atualizar agora"</strong> ou <strong>"Na próxima vez que abrir"</strong></li>
+            <li>Item de menu <strong>Help → Verificar atualização</strong> para checagem manual sob demanda</li>
+            <li>Fix da "janela fantasma" após auto-update no Windows (Squirrel lifecycle hooks via <code>electron-squirrel-startup</code>)</li>
+            <li>Cleanup de DB e safety net (<code>app.exit</code> em 5s) no <code>quitAndInstall</code> pra liberar locks do WAL</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <span class="release-tag">v1.0.4</span>
+            <span class="release-date">2026-05-17</span>
+          </div>
+          <ul>
+            <li>Fix do crash <code>EPIPE</code> no logger do auto-updater em builds packaged sem terminal attached (handler global de <code>uncaughtException</code> + logger envolvido em try/catch)</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <span class="release-tag">v1.0.3</span>
+            <span class="release-date">2026-05-17</span>
+          </div>
+          <ul>
+            <li>Fix: conteúdo longo no editor empurrava os botões de <strong>view-toggle</strong> (Editor/Split/Preview) pra fora da tela</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <span class="release-tag">v1.0.2</span>
+            <span class="release-date">2026-05-14</span>
+          </div>
+          <ul>
+            <li>Mostrar versão do app na janela <strong>Sobre</strong> (badge no header) e no rodapé da sidebar</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <span class="release-tag">v1.0.1</span>
+            <span class="release-date">2026-05-13</span>
+          </div>
+          <ul>
+            <li>Workflow de release multi-plataforma via <strong>GitHub Actions</strong> (build paralelo Windows + macOS + Linux disparado por tags <code>v*</code>)</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <span class="release-tag">v1.0.0</span>
             <span class="release-date">2026-05</span>
           </div>
           <ul>
@@ -345,6 +408,7 @@
             <li>Pasta de imagens configurável com migração assistida</li>
             <li>Caminho do banco visível em Preferências (com "Abrir pasta" pra inspeção via DB Browser, DBeaver, etc.)</li>
             <li>Ícones SVG Lucide, scrollbars customizadas, tema dark consistente</li>
+            <li>Auto-update via <code>update.electronjs.org</code> integrado</li>
           </ul>
         </div>
       </section>
