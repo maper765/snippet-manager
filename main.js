@@ -1,8 +1,17 @@
-const { app, BrowserWindow, ipcMain, Menu, dialog, clipboard, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog, clipboard, shell, autoUpdater } = require('electron');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 const Database = require('better-sqlite3');
+
+// Squirrel.Windows lifecycle hooks: quando o Squirrel relança o app com
+// --squirrel-install / --squirrel-updated / --squirrel-uninstall, este módulo
+// trata o evento (cria/remove shortcuts) e retorna true pra app sair sem
+// abrir janela. Sem isso, durante updates a versão nova abre uma janela
+// "fantasma" antes do app.quit() do processo antigo terminar.
+if (require('electron-squirrel-startup')) {
+  app.quit();
+}
 
 // Logger seguro: em builds packaged no Windows, stdout pode quebrar (EPIPE)
 // quando o app roda sem terminal attached. Engolimos esses writes em vez de
@@ -32,10 +41,132 @@ if (app.isPackaged) {
         repo: 'maper765/snippet-manager'
       },
       updateInterval: '1 hour',
-      logger: safeLogger
+      logger: safeLogger,
+      notifyUser: false
+    });
+
+    autoUpdater.on('update-available', () => {
+      if (manualUpdateCheck) {
+        manualUpdateCheck = false;
+        showInfoDialog(
+          'Verificar atualização',
+          'Nova versão encontrada.',
+          'Estamos baixando em segundo plano. Você será avisado quando estiver pronta para instalar.'
+        );
+      }
+    });
+
+    autoUpdater.on('update-not-available', () => {
+      if (manualUpdateCheck) {
+        manualUpdateCheck = false;
+        showInfoDialog(
+          'Verificar atualização',
+          'Você já está na versão mais recente.',
+          `Versão atual: ${app.getVersion()}`
+        );
+      }
+    });
+
+    autoUpdater.on('error', (err) => {
+      safeLogger.error('AutoUpdater error:', err && err.message);
+      if (manualUpdateCheck) {
+        manualUpdateCheck = false;
+        showInfoDialog(
+          'Verificar atualização',
+          'Falha ao verificar atualizações.',
+          (err && err.message) || 'Erro desconhecido.',
+          'error'
+        );
+      }
+    });
+
+    autoUpdater.on('update-downloaded', (_event, releaseNotes, releaseName) => {
+      pendingUpdateInfo = { releaseNotes, releaseName };
+      promptInstallUpdate();
     });
   } catch (err) {
     safeLogger.error('Falha ao iniciar auto-update:', err.message);
+  }
+}
+
+function showInfoDialog(title, message, detail, type = 'info') {
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  return dialog.showMessageBox(parent, {
+    type,
+    title,
+    message,
+    detail,
+    buttons: ['OK'],
+    defaultId: 0
+  });
+}
+
+function promptInstallUpdate() {
+  if (!pendingUpdateInfo) return;
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  const { releaseName } = pendingUpdateInfo;
+  dialog
+    .showMessageBox(parent, {
+      type: 'question',
+      buttons: ['Atualizar agora', 'Na próxima vez que abrir'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Atualização disponível',
+      message: releaseName
+        ? `Versão ${releaseName} pronta para instalar.`
+        : 'Uma nova versão está pronta para instalar.',
+      detail:
+        'Atualizar agora vai reiniciar o aplicativo. Se preferir, a atualização será aplicada na próxima vez que você abrir o Snippet Manager.'
+    })
+    .then(({ response }) => {
+      if (response === 0) performQuitAndInstall();
+    })
+    .catch((err) => safeLogger.error('Dialog error:', err && err.message));
+}
+
+function performQuitAndInstall() {
+  // Fecha DB antes pra liberar locks do WAL/SHM e permitir o Squirrel.Windows
+  // fazer o swap dos arquivos sem contenção.
+  if (db) {
+    try { db.close(); } catch { /* ignore */ }
+    db = null;
+  }
+  try {
+    autoUpdater.quitAndInstall();
+  } catch (err) {
+    safeLogger.error('quitAndInstall falhou:', err && err.message);
+  }
+  // Safety net: se algo segurar o processo, força saída após 5s pra evitar
+  // o cenário onde a versão nova já abriu e a antiga ficou pendurada.
+  setTimeout(() => {
+    try { app.exit(0); } catch { /* ignore */ }
+  }, 5000);
+}
+
+function checkForUpdatesManually() {
+  if (!app.isPackaged) {
+    showInfoDialog(
+      'Verificar atualização',
+      'Verificação de atualizações só funciona em builds empacotadas.',
+      'No modo de desenvolvimento (npm start) o auto-update fica desabilitado.'
+    );
+    return;
+  }
+  if (pendingUpdateInfo) {
+    promptInstallUpdate();
+    return;
+  }
+  manualUpdateCheck = true;
+  try {
+    autoUpdater.checkForUpdates();
+  } catch (err) {
+    manualUpdateCheck = false;
+    showInfoDialog(
+      'Verificar atualização',
+      'Falha ao iniciar verificação.',
+      (err && err.message) || 'Erro desconhecido.',
+      'error'
+    );
   }
 }
 
@@ -47,6 +178,8 @@ let IMAGES_DIR = DEFAULT_IMAGES_DIR;
 let CONFIG = {};
 let db;
 let mainWindow;
+let pendingUpdateInfo = null;
+let manualUpdateCheck = false;
 
 // ----- Config (userData/config.json) -----
 
@@ -504,6 +637,11 @@ function createMenu() {
       label: 'Help',
       role: 'help',
       submenu: [
+        {
+          label: 'Verificar atualização',
+          click: () => checkForUpdatesManually()
+        },
+        { type: 'separator' },
         {
           label: 'About Snippet Manager',
           click: () => createAboutWindow()
