@@ -1,6 +1,6 @@
 {
   "name": "snippet-manager",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Gerenciador de snippets de código com SQLite embarcado",
   "author": "Mário Oliveira <maper765@gmail.com>",
   "main": "main.js",
