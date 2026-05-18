@@ -63,6 +63,20 @@ body {
   border-right: 1px solid #333;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: width 0.25s ease, border-right-color 0.25s ease;
+}
+.app.sidebar-hidden .sidebar {
+  width: 0;
+  border-right-color: transparent;
+}
+.sidebar > * {
+  flex-shrink: 0;
+  min-width: 280px;
+}
+.sidebar #snippetList {
+  flex-shrink: 1;
 }
 .sidebar-header {
   display: flex;
@@ -283,6 +297,10 @@ body {
   cursor: pointer;
   font-weight: 500;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .sidebar-footer #quitBtn:hover {
   background: #2a2d2e;
@@ -382,6 +400,41 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+/* Botão toggle da sidebar - flutua no canto top-left do .main */
+.sidebar-toggle {
+  position: absolute;
+  top: 13px;
+  left: 12px;
+  z-index: 11;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  color: #a8a8a8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.sidebar-toggle:hover {
+  background: #2a2d2e;
+  color: #d4d4d4;
+  border-color: #0e639c;
+}
+.sidebar-toggle .icon-sidebar-open {
+  display: none;
+}
+.app.sidebar-hidden .sidebar-toggle .icon-sidebar-close {
+  display: none;
+}
+.app.sidebar-hidden .sidebar-toggle .icon-sidebar-open {
+  display: block;
 }
 .empty {
   display: flex;
@@ -447,7 +500,7 @@ body {
 .editor-header {
   display: flex;
   gap: 8px;
-  padding: 12px;
+  padding: 12px 12px 12px 52px;
   background: #2d2d30;
   border-bottom: 1px solid #333;
   align-items: center;
@@ -496,6 +549,58 @@ button svg {
 }
 .editor-header button.danger:hover {
   background: #a1260d;
+}
+
+/* Markdown toolbar - aparece só quando linguagem = markdown e textarea visível */
+.md-toolbar {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  background: #252526;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+  user-select: none;
+}
+.editor.markdown-mode:not(.view-preview) .md-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.md-toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.md-toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: #3c3c3c;
+  margin: 0 6px;
+}
+.md-toolbar button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #a8a8a8;
+  cursor: pointer;
+  width: 30px;
+  height: 28px;
+  border-radius: 4px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.md-toolbar button:hover {
+  background: #2a2d2e;
+  color: #d4d4d4;
+  border-color: #0e639c;
+}
+.md-toolbar button:active {
+  background: #1177bb;
+  color: #fff;
+  border-color: #0e639c;
 }
 
 /* Editor body - painéis sempre flex; visibilidade controlada por classes no .editor */
@@ -637,6 +742,42 @@ button svg {
   border-left: none;
 }
 
+/* Resizer da view split */
+.split-resizer {
+  display: none;
+  flex: 0 0 5px;
+  background: #2d2d2d;
+  cursor: col-resize;
+  position: relative;
+  z-index: 5;
+  transition: background 0.15s;
+}
+.editor.view-split .split-resizer {
+  display: block;
+}
+.split-resizer:hover {
+  background: #0e639c;
+}
+.split-resizer.dragging {
+  background: #1177bb;
+}
+/* Em split, #code adota largura controlada via CSS variable.
+   Fora de split, volta pro flex: 1 default. */
+.editor.view-split #code {
+  flex: 0 0 var(--code-width, 50%);
+}
+.editor.view-split .preview,
+.editor.view-split .rendered-md {
+  flex: 1 1 auto;
+  border-left: none;
+}
+/* Enquanto arrasta, suprime seleção de texto em todo lugar */
+body.split-resizing,
+body.split-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 /* Editor footer */
 .editor-footer {
   display: flex;
@@ -776,6 +917,39 @@ button svg {
   padding: 14px;
   overflow-x: auto;
   margin: 14px 0;
+  position: relative;
+}
+.rendered-md pre .md-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  background: rgba(45, 45, 48, 0.85);
+  color: #d4d4d4;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s, color 0.15s;
+  z-index: 2;
+}
+.rendered-md pre:hover .md-copy-btn,
+.rendered-md pre .md-copy-btn:focus-visible {
+  opacity: 1;
+}
+.rendered-md pre .md-copy-btn:hover {
+  background: rgba(60, 60, 64, 1);
+  border-color: #0e639c;
+}
+.rendered-md pre .md-copy-btn.copied {
+  opacity: 1;
+  color: #6cc94b;
+  border-color: #3d6e2e;
 }
 .rendered-md pre code {
   background: transparent;
@@ -1068,4 +1242,21 @@ button svg {
 }
 .rendered-md input[type='checkbox'] {
   margin-right: 6px;
+}
+/* Task list (GFM): esconde o bullet do <li> que tem checkbox dentro
+   pra não aparecer "• ☐ texto" — ficaria duplicado. */
+.rendered-md ul li:has(> input[type='checkbox']) {
+  list-style: none;
+  margin-left: -1.4em;
+}
+
+/* Flash de sincronização entre textarea e preview na view split.
+   Aplica brevemente um fundo azul que esmaece, indicando o bloco-alvo. */
+@keyframes md-sync-flash {
+  0% { background-color: rgba(14, 99, 156, 0.4); }
+  100% { background-color: rgba(14, 99, 156, 0); }
+}
+.rendered-md .md-sync-flash {
+  animation: md-sync-flash 0.6s ease-out;
+  border-radius: 4px;
 }

@@ -189,6 +189,7 @@ const els = {
   tags: document.getElementById('tags'),
   code: document.getElementById('code'),
   editorBody: document.querySelector('.editor-body'),
+  splitResizer: document.getElementById('splitResizer'),
   preview: document.getElementById('preview'),
   rendered: document.getElementById('rendered'),
   gallery: document.getElementById('gallery'),
@@ -454,7 +455,7 @@ function updatePreview() {
   els.editor.classList.toggle('markdown-mode', isMarkdown);
 
   if (isMarkdown) {
-    const rawHtml = marked.parse(s.code || '', { breaks: true, gfm: true });
+    const rawHtml = renderMarkdownWithLineMap(s.code || '');
     els.rendered.innerHTML = DOMPurify.sanitize(rawHtml);
     els.rendered.querySelectorAll('pre code').forEach((block) => {
       if (window.hljs) {
@@ -462,6 +463,7 @@ function updatePreview() {
         hljs.highlightElement(block);
       }
     });
+    addCopyButtonsToCodeBlocks();
   } else {
     els.preview.className = `language-${s.language}`;
     els.preview.textContent = s.code;
@@ -475,6 +477,165 @@ function updatePreview() {
 function schedulePreviewUpdate() {
   clearTimeout(previewTimeout);
   previewTimeout = setTimeout(updatePreview, 150);
+}
+
+// ============ Markdown source ↔ preview sync ============
+// Renderiza token a token e injeta data-md-start / data-md-end com a linha de
+// origem no textarea em cada bloco de topo (heading, parágrafo, lista, pre,
+// blockquote, tabela, hr).
+
+function renderMarkdownWithLineMap(source) {
+  if (typeof marked.lexer !== 'function' || typeof marked.parser !== 'function') {
+    return marked.parse(source, { breaks: true, gfm: true });
+  }
+  try {
+    const tokens = marked.lexer(source, { breaks: true, gfm: true });
+    let line = 0;
+    let html = '';
+    for (const token of tokens) {
+      const start = line;
+      const raw = token.raw || '';
+      const newlines = (raw.match(/\n/g) || []).length;
+      const end = line + newlines;
+      line = end;
+      let tokenHtml;
+      try {
+        tokenHtml = marked.parser([token], { breaks: true, gfm: true });
+      } catch {
+        tokenHtml = '';
+      }
+      // Injeta data attributes na primeira tag do bloco. Funciona pra <p>,
+      // <h1>, <ul>, <pre>, <blockquote>, <hr/>, <table>, etc. Comentários,
+      // texto puro ou outputs estranhos ficam sem atributo e não quebram.
+      const injected = tokenHtml.replace(
+        /^(\s*<[a-zA-Z][a-zA-Z0-9]*\b)/,
+        `$1 data-md-start="${start}" data-md-end="${end}"`
+      );
+      html += injected;
+    }
+    return html;
+  } catch {
+    return marked.parse(source, { breaks: true, gfm: true });
+  }
+}
+
+function getLineFromOffset(text, offset) {
+  let line = 0;
+  const max = Math.min(offset, text.length);
+  for (let i = 0; i < max; i++) {
+    if (text.charCodeAt(i) === 10) line++;
+  }
+  return line;
+}
+
+function getOffsetFromLine(text, targetLine) {
+  if (targetLine <= 0) return 0;
+  let offset = 0;
+  let line = 0;
+  while (offset < text.length && line < targetLine) {
+    if (text.charCodeAt(offset) === 10) line++;
+    offset++;
+  }
+  return offset;
+}
+
+function flashSyncTarget(el) {
+  if (!el) return;
+  el.classList.remove('md-sync-flash');
+  // force reflow pra reiniciar a animação se for o mesmo elemento
+  void el.offsetWidth;
+  el.classList.add('md-sync-flash');
+  el.addEventListener(
+    'animationend',
+    () => el.classList.remove('md-sync-flash'),
+    { once: true }
+  );
+}
+
+function isMdSyncActive() {
+  return (
+    els.editor.classList.contains('markdown-mode') &&
+    els.editor.classList.contains('view-split')
+  );
+}
+
+// Click no preview → cursor da textarea pula pra linha do bloco clicado
+function syncPreviewToEditor(blockEl) {
+  const start = Number(blockEl.dataset.mdStart);
+  if (Number.isNaN(start)) return;
+  const offset = getOffsetFromLine(els.code.value, start);
+  els.code.focus();
+  els.code.setSelectionRange(offset, offset);
+  // textarea auto-scrolls cursor into view
+}
+
+// Cursor na textarea → preview scrolla até o bloco que cobre essa linha
+function syncEditorToPreview() {
+  const cursorLine = getLineFromOffset(els.code.value, els.code.selectionStart);
+  const blocks = els.rendered.querySelectorAll('[data-md-start]');
+  if (!blocks.length) return;
+  let target = blocks[0];
+  for (const b of blocks) {
+    const bStart = Number(b.dataset.mdStart);
+    if (bStart <= cursorLine) target = b;
+    else break;
+  }
+  if (!target) return;
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  flashSyncTarget(target);
+}
+
+els.rendered.addEventListener('click', (e) => {
+  if (!isMdSyncActive()) return;
+  // Não sincroniza se o click foi em algo interativo dentro do bloco
+  if (e.target.closest('.md-copy-btn, button, a, input')) return;
+  const block = e.target.closest('[data-md-start]');
+  if (!block) return;
+  syncPreviewToEditor(block);
+});
+
+let mdSyncTimer = null;
+function scheduleEditorSync() {
+  if (!isMdSyncActive()) return;
+  clearTimeout(mdSyncTimer);
+  mdSyncTimer = setTimeout(syncEditorToPreview, 60);
+}
+
+els.code.addEventListener('click', scheduleEditorSync);
+els.code.addEventListener('keyup', (e) => {
+  // só em movimento de cursor — não em cada keystroke de texto
+  const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+    'PageUp', 'PageDown', 'Home', 'End'];
+  if (!navKeys.includes(e.key)) return;
+  scheduleEditorSync();
+});
+
+const COPY_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+const CHECK_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+
+function addCopyButtonsToCodeBlocks() {
+  els.rendered.querySelectorAll('pre').forEach((pre) => {
+    if (pre.querySelector(':scope > .md-copy-btn')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'md-copy-btn';
+    btn.title = 'Copiar código';
+    btn.innerHTML = COPY_ICON_SVG;
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code');
+      const text = code ? code.textContent : pre.textContent;
+      window.api.copyToClipboard(text || '');
+      btn.classList.add('copied');
+      btn.innerHTML = CHECK_ICON_SVG;
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = COPY_ICON_SVG;
+      }, 1200);
+    });
+    pre.appendChild(btn);
+  });
 }
 
 function setViewMode(mode) {
@@ -854,6 +1015,359 @@ els.viewBtns.forEach((btn) => {
   btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
 });
 
+// ---------- Markdown toolbar ----------
+
+function mdFireInput() {
+  els.code.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function mdWrap(marker) {
+  const ta = els.code;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const value = ta.value;
+  const sel = value.slice(start, end);
+  const before = value.slice(Math.max(0, start - marker.length), start);
+  const after = value.slice(end, end + marker.length);
+
+  let newVal, newStart, newEnd;
+  if (before === marker && after === marker) {
+    newVal = value.slice(0, start - marker.length) + sel + value.slice(end + marker.length);
+    newStart = start - marker.length;
+    newEnd = end - marker.length;
+  } else {
+    newVal = value.slice(0, start) + marker + sel + marker + value.slice(end);
+    newStart = start + marker.length;
+    newEnd = end + marker.length;
+  }
+
+  ta.value = newVal;
+  ta.selectionStart = newStart;
+  ta.selectionEnd = newEnd;
+  ta.focus();
+  mdFireInput();
+}
+
+function mdHeading(level) {
+  const ta = els.code;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const value = ta.value;
+  const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+  const nlAfter = value.indexOf('\n', start);
+  const lineEnd = nlAfter === -1 ? value.length : nlAfter;
+  const line = value.slice(lineStart, lineEnd);
+
+  const match = line.match(/^(#+)\s+/);
+  const currentLevel = match ? match[1].length : 0;
+  const stripped = match ? line.slice(match[0].length) : line;
+  const newLine = currentLevel === level ? stripped : '#'.repeat(level) + ' ' + stripped;
+
+  ta.value = value.slice(0, lineStart) + newLine + value.slice(lineEnd);
+  const delta = newLine.length - line.length;
+  ta.selectionStart = start + delta;
+  ta.selectionEnd = end + delta;
+  ta.focus();
+  mdFireInput();
+}
+
+function mdCodeBlock() {
+  const ta = els.code;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const value = ta.value;
+  const sel = value.slice(start, end);
+
+  // Garante que as fences fiquem em linhas próprias
+  const needsPrefix = start > 0 && value[start - 1] !== '\n';
+  const needsSuffix = end < value.length && value[end] !== '\n';
+  const prefix = needsPrefix ? '\n' : '';
+  const suffix = needsSuffix ? '\n' : '';
+  const innerWrap = sel.length > 0 ? `\n${sel}\n` : '\n\n';
+  const insertion = `${prefix}\`\`\`${innerWrap}\`\`\`${suffix}`;
+
+  ta.value = value.slice(0, start) + insertion + value.slice(end);
+  // Cursor logo após a abertura ``` pra usuário digitar a linguagem
+  const cursorPos = start + prefix.length + 3;
+  ta.selectionStart = cursorPos;
+  ta.selectionEnd = cursorPos;
+  ta.focus();
+  mdFireInput();
+}
+
+function mdQuote() {
+  const ta = els.code;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const value = ta.value;
+
+  const blockStart = value.lastIndexOf('\n', start - 1) + 1;
+  const endProbe = end > start ? end - 1 : end;
+  const nlAfter = value.indexOf('\n', endProbe);
+  const blockEnd = nlAfter === -1 ? value.length : nlAfter;
+  const block = value.slice(blockStart, blockEnd);
+  const lines = block.split('\n');
+
+  const quoteRegex = /^>\s?/;
+  const allQuoted = lines.every((l) => l.trim() === '' || quoteRegex.test(l));
+
+  let newLines;
+  if (allQuoted) {
+    newLines = lines.map((l) => l.replace(quoteRegex, ''));
+  } else {
+    newLines = lines.map((l) => (l.trim() === '' ? l : '> ' + l));
+  }
+
+  const newBlock = newLines.join('\n');
+  ta.value = value.slice(0, blockStart) + newBlock + value.slice(blockEnd);
+  ta.selectionStart = blockStart;
+  ta.selectionEnd = blockStart + newBlock.length;
+  ta.focus();
+  mdFireInput();
+}
+
+function mdHr() {
+  const ta = els.code;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const value = ta.value;
+
+  const needsPrefix = start > 0 && value[start - 1] !== '\n';
+  const needsSuffix = end < value.length && value[end] !== '\n';
+  const prefix = needsPrefix ? '\n' : '';
+  const suffix = needsSuffix ? '\n' : '';
+  const insertion = `${prefix}---\n${suffix}`;
+
+  ta.value = value.slice(0, start) + insertion + value.slice(end);
+  const cursorPos = start + insertion.length;
+  ta.selectionStart = cursorPos;
+  ta.selectionEnd = cursorPos;
+  ta.focus();
+  mdFireInput();
+}
+
+function mdLinkOrImage(isImage) {
+  const ta = els.code;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const value = ta.value;
+  const sel = value.slice(start, end);
+  const bang = isImage ? '!' : '';
+  const placeholder = isImage ? 'alt' : 'texto';
+
+  if (sel.length > 0) {
+    // Seleção vira texto/alt; "url" fica selecionada pra colar
+    const insertion = `${bang}[${sel}](url)`;
+    ta.value = value.slice(0, start) + insertion + value.slice(end);
+    const urlStart = start + bang.length + 1 + sel.length + 2; // após "]("
+    ta.selectionStart = urlStart;
+    ta.selectionEnd = urlStart + 3; // tamanho de "url"
+  } else {
+    // Sem seleção: insere template com placeholder selecionado
+    const insertion = `${bang}[${placeholder}](url)`;
+    ta.value = value.slice(0, start) + insertion + value.slice(end);
+    const textStart = start + bang.length + 1; // após "["
+    ta.selectionStart = textStart;
+    ta.selectionEnd = textStart + placeholder.length;
+  }
+  ta.focus();
+  mdFireInput();
+}
+
+function mdClearFormat() {
+  const ta = els.code;
+  let start = ta.selectionStart;
+  let end = ta.selectionEnd;
+  const value = ta.value;
+
+  if (start === end) return;
+
+  // Expande a seleção pra fora se houver marcador casado em volta
+  const wrappers = ['**', '__', '~~', '*', '_', '`'];
+  let expanded = true;
+  while (expanded) {
+    expanded = false;
+    for (const w of wrappers) {
+      const before = value.slice(Math.max(0, start - w.length), start);
+      const after = value.slice(end, end + w.length);
+      if (before === w && after === w) {
+        start -= w.length;
+        end += w.length;
+        expanded = true;
+        break;
+      }
+    }
+  }
+
+  let sel = value.slice(start, end);
+  // Strip inline (bold/strike primeiro, depois italic — ordem importa)
+  sel = sel.replace(/\*\*([^*]+?)\*\*/g, '$1');
+  sel = sel.replace(/__([^_]+?)__/g, '$1');
+  sel = sel.replace(/~~([^~]+?)~~/g, '$1');
+  sel = sel.replace(/`([^`]+?)`/g, '$1');
+  sel = sel.replace(/\*([^*\n]+?)\*/g, '$1');
+  sel = sel.replace(/_([^_\n]+?)_/g, '$1');
+  // Strip link/imagem: mantém só o texto/alt
+  sel = sel.replace(/!?\[([^\]]*?)\]\([^)]*?\)/g, '$1');
+  // Strip prefixos de linha (heading, quote, listas)
+  sel = sel.replace(/^(#+\s+|>\s?|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+)/gm, '');
+
+  ta.value = value.slice(0, start) + sel + value.slice(end);
+  ta.selectionStart = start;
+  ta.selectionEnd = start + sel.length;
+  ta.focus();
+  mdFireInput();
+}
+
+function mdTable() {
+  const ta = els.code;
+  const start = ta.selectionStart;
+  const value = ta.value;
+
+  const needsPrefix = start > 0 && value[start - 1] !== '\n';
+  const needsSuffix = start < value.length && value[start] !== '\n';
+  const prefix = needsPrefix ? '\n' : '';
+  const suffix = needsSuffix ? '\n' : '';
+  const template =
+    `${prefix}| Coluna 1 | Coluna 2 |\n` +
+    `| --- | --- |\n` +
+    `| valor 1 | valor 2 |\n${suffix}`;
+
+  ta.value = value.slice(0, start) + template + value.slice(start);
+  // Seleciona "Coluna 1" pra usuário digitar o cabeçalho direto
+  const headerStart = start + prefix.length + 2;
+  ta.selectionStart = headerStart;
+  ta.selectionEnd = headerStart + 'Coluna 1'.length;
+  ta.focus();
+  mdFireInput();
+}
+
+// Remove qualquer marcador de lista do início da linha (UL, OL, task feito/não)
+const MD_LIST_STRIP = /^(?:[-*+]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+)/;
+const MD_LIST_DETECT = {
+  ul: /^[-*+]\s+(?!\[[ xX]\])/,
+  ol: /^\d+\.\s+/,
+  task: /^[-*+]\s+\[\s\]\s+/,
+  taskDone: /^[-*+]\s+\[[xX]\]\s+/
+};
+
+function mdToggleList(kind) {
+  const ta = els.code;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const value = ta.value;
+
+  const blockStart = value.lastIndexOf('\n', start - 1) + 1;
+  const endProbe = end > start ? end - 1 : end;
+  const nlAfter = value.indexOf('\n', endProbe);
+  const blockEnd = nlAfter === -1 ? value.length : nlAfter;
+  const block = value.slice(blockStart, blockEnd);
+  const lines = block.split('\n');
+
+  const detect = MD_LIST_DETECT[kind];
+  const allHave = lines.every((l) => l.trim() === '' || detect.test(l));
+
+  let newLines;
+  if (allHave) {
+    newLines = lines.map((l) => l.replace(MD_LIST_STRIP, ''));
+  } else {
+    let counter = 1;
+    newLines = lines.map((l) => {
+      if (l.trim() === '') return l;
+      const stripped = l.replace(MD_LIST_STRIP, '');
+      if (kind === 'ul') return '- ' + stripped;
+      if (kind === 'ol') return `${counter++}. ` + stripped;
+      if (kind === 'task') return '- [ ] ' + stripped;
+      if (kind === 'taskDone') return '- [x] ' + stripped;
+      return l;
+    });
+  }
+
+  const newBlock = newLines.join('\n');
+  ta.value = value.slice(0, blockStart) + newBlock + value.slice(blockEnd);
+  ta.selectionStart = blockStart;
+  ta.selectionEnd = blockStart + newBlock.length;
+  ta.focus();
+  mdFireInput();
+}
+
+const mdToolbar = document.getElementById('mdToolbar');
+// Previne perda de foco/seleção no textarea ao clicar nos botões
+mdToolbar.addEventListener('mousedown', (e) => {
+  if (e.target.closest('button[data-md-action]')) e.preventDefault();
+});
+mdToolbar.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-md-action]');
+  if (!btn) return;
+  const action = btn.dataset.mdAction;
+  switch (action) {
+    case 'bold': mdWrap('**'); break;
+    case 'italic': mdWrap('*'); break;
+    case 'strike': mdWrap('~~'); break;
+    case 'code': mdWrap('`'); break;
+    case 'h1': mdHeading(1); break;
+    case 'h2': mdHeading(2); break;
+    case 'h3': mdHeading(3); break;
+    case 'codeblock': mdCodeBlock(); break;
+    case 'quote': mdQuote(); break;
+    case 'table': mdTable(); break;
+    case 'hr': mdHr(); break;
+    case 'link': mdLinkOrImage(false); break;
+    case 'image': mdLinkOrImage(true); break;
+    case 'clear': mdClearFormat(); break;
+    case 'ul': mdToggleList('ul'); break;
+    case 'ol': mdToggleList('ol'); break;
+    case 'task': mdToggleList('task'); break;
+    case 'taskDone': mdToggleList('taskDone'); break;
+  }
+});
+
+// Resizer da view split: arraste para mudar o ratio entre editor e preview.
+// Persiste no .editor via CSS variable --code-width (em %), então volta ao
+// mesmo ratio quando o usuário sai e volta pra split.
+const SPLIT_MIN_PCT = 15;
+const SPLIT_MAX_PCT = 85;
+
+els.splitResizer.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (!els.editor.classList.contains('view-split')) return;
+  e.preventDefault();
+
+  const bodyRect = els.editorBody.getBoundingClientRect();
+  const bodyW = bodyRect.width;
+  if (bodyW <= 0) return;
+
+  const startCodeW = els.code.getBoundingClientRect().width;
+
+  els.splitResizer.classList.add('dragging');
+  document.body.classList.add('split-resizing');
+
+  const onMove = (ev) => {
+    const dx = ev.clientX - e.clientX;
+    let newW = startCodeW + dx;
+    const minW = (bodyW * SPLIT_MIN_PCT) / 100;
+    const maxW = (bodyW * SPLIT_MAX_PCT) / 100;
+    if (newW < minW) newW = minW;
+    if (newW > maxW) newW = maxW;
+    const pct = (newW / bodyW) * 100;
+    els.editor.style.setProperty('--code-width', `${pct.toFixed(2)}%`);
+  };
+
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    els.splitResizer.classList.remove('dragging');
+    document.body.classList.remove('split-resizing');
+  };
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
+
+els.splitResizer.addEventListener('dblclick', () => {
+  els.editor.style.removeProperty('--code-width');
+});
+
 els.imageModalClose.addEventListener('click', closeImageModal);
 els.imageModalOverlay.addEventListener('click', closeImageModal);
 els.imageModalImg.addEventListener('load', () => {
@@ -1014,7 +1528,16 @@ document.addEventListener('keydown', (e) => {
     if (!currentId) return;
     e.preventDefault();
     duplicateCurrent();
+  } else if (key === 'b') {
+    e.preventDefault();
+    toggleSidebar();
   }
 });
+
+function toggleSidebar() {
+  els.appRoot.classList.toggle('sidebar-hidden');
+}
+
+document.getElementById('toggleSidebarBtn').addEventListener('click', toggleSidebar);
 
 init();

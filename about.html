@@ -316,8 +316,6 @@
         <div class="feature-group">
           <h3>Outros</h3>
           <ul>
-            <li>Autenticação com login/logout (padrão <code>admin/admin</code>)</li>
-            <li>Menu travado pré-login (só Help visível)</li>
             <li>Persistência de bounds da janela (size, position, maximized)</li>
             <li>Export de todos os snippets pra JSON via menu</li>
             <li>Tema dark VS Code-inspired com scrollbars customizadas</li>
@@ -331,8 +329,24 @@
 
         <div class="release">
           <div class="release-header">
-            <span class="release-tag">v1.0.6</span>
+            <span class="release-tag">v1.0.7</span>
             <span class="release-current">Atual</span>
+            <span class="release-date">2026-05-17</span>
+          </div>
+          <ul>
+            <li><strong>Toolbar de markdown</strong> com 18 botões em 6 grupos: bold/italic/strike/code inline, H1-H3, bloco de código, quote, tabela, HR, listas (UL/OL/task feito/não feito), link, imagem e limpar formatação. Toggle on/off automático nos botões inline e de bloco.</li>
+            <li><strong>Sync bidirecional</strong> entre editor e preview na view split: click em qualquer bloco do preview leva o cursor pra linha correspondente na textarea; click/setas na textarea fazem o preview scrollar suave pro bloco da linha atual (com flash visual de 600ms).</li>
+            <li><strong>Resizer</strong> na linha divisória da view split — arraste pra mudar o ratio editor/preview, duplo-clique reseta pra 50/50. Posição persiste enquanto sair/voltar pro split.</li>
+            <li><strong>Sidebar colapsável</strong> via ícone no canto superior esquerdo (ou <code>Ctrl+B</code>), com transição suave de 250ms.</li>
+            <li><strong>Botão Copiar</strong> em cada bloco <code>```</code> do preview de markdown (hover-only), com feedback de checkmark verde por 1.2s.</li>
+            <li>Fix: bullet duplicado em task lists (<code>- [ ]</code>) — agora aparece só o checkbox, sem a bolinha do <code>&lt;ul&gt;</code>.</li>
+            <li>Ícone <em>log-out</em> no botão Sair da sidebar pra coerência visual com o resto da UI.</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <span class="release-tag">v1.0.6</span>
             <span class="release-date">2026-05-17</span>
           </div>
           <ul>
